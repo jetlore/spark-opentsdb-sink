@@ -1,0 +1,16 @@
+*.iml
+.idea/
+target/
+project/plugins/project
+*.log
+*.log.*
+.DS_Store
+.buildpath
+.cache
+.project
+.classpath
+.metadata
+/*.sh
+*.py[cod]
+*.swp
+.settings/
