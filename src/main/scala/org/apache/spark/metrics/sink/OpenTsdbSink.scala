@@ -44,12 +44,14 @@ import org.apache.spark.metrics.MetricsSystem
   */
 private[spark] class OpenTsdbSink(val property: Properties, val registry: MetricRegistry,
                                   securityMgr: SecurityManager) extends Sink with Logging {
+
+  logInfo("OpenTsdbSink initialized")
+
   val OPENTSDB_DEFAULT_PERIOD = 10
   val OPENTSDB_DEFAULT_UNIT = "SECONDS"
   val OPENTSDB_DEFAULT_PREFIX = ""
   val OPENTSDB_DEFAULT_TAG_NAME_1 = "appId"
-  lazy val OPENTSDB_DEFAULT_TAG_VALUE_1 = Option(SparkEnv.get).map(_.conf).map(_.getAppId)
-    .getOrElse(SparkContext.getOrCreate().applicationId)
+  lazy val OPENTSDB_DEFAULT_TAG_VALUE_1 = Option(SparkEnv.get).map(_.conf).map(_.getAppId).getOrElse("unknown")
 
   val OPENTSDB_KEY_HOST = "host"
   val OPENTSDB_KEY_PORT = "port"
@@ -136,15 +138,22 @@ private[spark] class OpenTsdbSink(val property: Properties, val registry: Metric
 
   private val tags = new java.util.HashMap[String, String]()
 
-  private def getTags(): java.util.Map[String, String] = {
+  private def getTags(registry: MetricRegistry): java.util.Map[String, String] = {
     tags.put(tagName1, tagValue1)
     updateTagsForTag(OPENTSDB_KEY_TAG_NAME_2, OPENTSDB_KEY_TAG_VALUE_2)
     updateTagsForTag(OPENTSDB_KEY_TAG_NAME_3, OPENTSDB_KEY_TAG_VALUE_3)
     updateTagsForTag(OPENTSDB_KEY_TAG_NAME_4, OPENTSDB_KEY_TAG_VALUE_4)
     updateTagsForTag(OPENTSDB_KEY_TAG_NAME_5, OPENTSDB_KEY_TAG_VALUE_5)
     updateTagsForTag(OPENTSDB_KEY_TAG_NAME_6, OPENTSDB_KEY_TAG_VALUE_6)
-    updateTagsForTag(OPENTSDB_KEY_TAG_NAME_7, OPENTSDB_KEY_TAG_VALUE_7)
-    updateTagsForTag(OPENTSDB_KEY_TAG_NAME_8, OPENTSDB_KEY_TAG_VALUE_8)
+
+    if (appId != null) {
+      tags.put("appId", appId)
+      tags.put("executorId", executorId)
+    } else {
+      updateTagsForTag(OPENTSDB_KEY_TAG_NAME_7, OPENTSDB_KEY_TAG_VALUE_7)
+      updateTagsForTag(OPENTSDB_KEY_TAG_NAME_8, OPENTSDB_KEY_TAG_VALUE_8)
+    }
+
     tags
   }
 
@@ -161,11 +170,28 @@ private[spark] class OpenTsdbSink(val property: Properties, val registry: Metric
     }
   }
 
+  // extract appId and executorId from first metric's name
+  var appId: String = null
+  var executorId: String = null
+
+  if (!registry.getNames.isEmpty) {
+    // search strings like app-20160526104713-0016.0.xxx or app-20160526104713-0016.driver.xxx
+    val pattern = """(app-\d+-\d+)\.(\d+|driver)\..+""".r
+
+    registry.getNames.first match {
+      case pattern(app, executor) =>
+        this.appId = app
+        this.executorId = executor
+      case _ =>
+    }
+  }
+
   val openTsdb = OpenTsdb.forService("http://" + host + ":" + port).create()
 
   lazy val reporter: OpenTsdbReporter = OpenTsdbReporter.forRegistry(registry)
     .prefixedWith(prefix)
-    .withTags(getTags)
+    .removePrefix(Option(appId).map(_ + "." + executorId + ".").orNull)
+    .withTags(getTags(registry))
     .build(openTsdb)
 
   override def start() {

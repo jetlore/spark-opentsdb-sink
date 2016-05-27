@@ -33,6 +33,7 @@ public class OpenTsdbReporter extends ScheduledReporter {
     private final OpenTsdb opentsdb;
     private final Clock clock;
     private final String prefix;
+    private final String prefixToRemove;
     private final Map<String, String> tags;
 
     /**
@@ -54,6 +55,7 @@ public class OpenTsdbReporter extends ScheduledReporter {
         private final MetricRegistry registry;
         private Clock clock;
         private String prefix;
+        private String prefixToRemove;
         private TimeUnit rateUnit;
         private TimeUnit durationUnit;
         private MetricFilter filter;
@@ -89,6 +91,11 @@ public class OpenTsdbReporter extends ScheduledReporter {
          */
         public Builder prefixedWith(String prefix) {
             this.prefix = prefix;
+            return this;
+        }
+
+        public Builder removePrefix(String prefixToRemove) {
+            this.prefixToRemove = prefixToRemove;
             return this;
         }
 
@@ -160,6 +167,7 @@ public class OpenTsdbReporter extends ScheduledReporter {
                     opentsdb,
                     clock,
                     prefix,
+                    prefixToRemove,
                     rateUnit,
                     durationUnit,
                     filter, tags);
@@ -195,11 +203,14 @@ public class OpenTsdbReporter extends ScheduledReporter {
         }
     }
 
-    private OpenTsdbReporter(MetricRegistry registry, OpenTsdb opentsdb, Clock clock, String prefix, TimeUnit rateUnit, TimeUnit durationUnit, MetricFilter filter, Map<String, String> tags) {
+    private OpenTsdbReporter(MetricRegistry registry, OpenTsdb opentsdb, Clock clock,
+                             String prefix, String prefixToRemove,
+                             TimeUnit rateUnit, TimeUnit durationUnit, MetricFilter filter, Map<String, String> tags) {
         super(registry, "opentsdb-reporter", filter, rateUnit, durationUnit);
         this.opentsdb = opentsdb;
         this.clock = clock;
         this.prefix = prefix;
+        this.prefixToRemove = prefixToRemove;
         this.tags = tags;
     }
 
@@ -310,7 +321,10 @@ public class OpenTsdbReporter extends ScheduledReporter {
     }
 
     private String prefix(String... components) {
+        if (prefixToRemove != null) {
+            components[0] = components[0].replace(prefixToRemove, "");
+        }
+
         return MetricRegistry.name(prefix, components);
     }
-
 }

@@ -25,6 +25,8 @@ object BuildSettings {
       case "library.properties" => MergeStrategy.discard
       case "asm-license.txt" => MergeStrategy.rename
       case s: String if s.startsWith("META-INF/maven/com.fasterxml.jackson.core") => MergeStrategy.filterDistinctLines
+      case s: String if s.startsWith("META-INF/maven/com.sun.jersey") => MergeStrategy.filterDistinctLines
+      case s: String if s.startsWith("META-INF/maven/org.codehaus.jettison") => MergeStrategy.filterDistinctLines
       case s: String if s.startsWith("META-INF/maven/org.slf4j") => MergeStrategy.filterDistinctLines
       case s: String if s.startsWith("META-INF/maven/ch.qos.logback") => MergeStrategy.filterDistinctLines
       case x => old(x)

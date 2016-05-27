@@ -155,7 +155,7 @@ public class OpenTsdb {
                         .type(MediaType.APPLICATION_JSON)
                         .entity(metrics)
                         .post();
-            } catch(Exception ex) {
+            } catch(Throwable ex) {
                 logger.error("send to opentsdb endpoint failed", ex);
             }
         }

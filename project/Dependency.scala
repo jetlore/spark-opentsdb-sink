@@ -1,7 +1,7 @@
 import sbt._
 
 trait Dependency {
-  val JERSEY_VERSION = "1.9"
+  val JERSEY_VERSION = "1.19.1"
 
   val excludeSlf4J = List(
     ExclusionRule(organization = "org.slf4j"),
