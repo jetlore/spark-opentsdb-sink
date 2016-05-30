@@ -23,11 +23,11 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics.MetricRegistry
 import com.github.sps.metrics.OpenTsdbReporter
 import com.github.sps.metrics.opentsdb.OpenTsdb
-import org.apache.spark.{Logging, SecurityManager, SparkContext, SparkEnv}
+import org.apache.spark.{Logging, SecurityManager}
 import org.apache.spark.metrics.MetricsSystem
 
 /**
-  * This file is taken from pull request to Spark
+  * This file is taken (with some changes) from pull request to Spark
   * https://github.com/apache/spark/pull/10187/commits/df43bb46d055611167c1253a497ff36f23248733
   * Issue: https://issues.apache.org/jira/browse/SPARK-12194
   *
@@ -39,8 +39,8 @@ import org.apache.spark.metrics.MetricsSystem
   * #   period      10                  Poll period
   * #   unit        seconds             Units of poll period
   * #   prefix      EMPTY STRING        Prefix to prepend to metric name
-  * #   tagName1    appId               Name of one required tag for OpenTsdb
-  * #   tagValue1   SPARK APP ID        Value of one required tag for OpenTsdb
+  * #   tagName1                        Name of one required tag for OpenTsdb
+  * #   tagValue1                       Value of one required tag for OpenTsdb
   */
 private[spark] class OpenTsdbSink(val property: Properties, val registry: MetricRegistry,
                                   securityMgr: SecurityManager) extends Sink with Logging {
@@ -50,8 +50,6 @@ private[spark] class OpenTsdbSink(val property: Properties, val registry: Metric
   val OPENTSDB_DEFAULT_PERIOD = 10
   val OPENTSDB_DEFAULT_UNIT = "SECONDS"
   val OPENTSDB_DEFAULT_PREFIX = ""
-  val OPENTSDB_DEFAULT_TAG_NAME_1 = "appId"
-  lazy val OPENTSDB_DEFAULT_TAG_VALUE_1 = Option(SparkEnv.get).map(_.conf).map(_.getAppId).getOrElse("unknown")
 
   val OPENTSDB_KEY_HOST = "host"
   val OPENTSDB_KEY_PORT = "port"
@@ -78,11 +76,11 @@ private[spark] class OpenTsdbSink(val property: Properties, val registry: Metric
 
   def propertyToOption(prop: String): Option[String] = Option(property.getProperty(prop))
 
-  if (!propertyToOption(OPENTSDB_KEY_HOST).isDefined) {
+  if (propertyToOption(OPENTSDB_KEY_HOST).isEmpty) {
     throw new Exception(s"OpenTSDB sink requires '$OPENTSDB_KEY_HOST' property.")
   }
 
-  if (!propertyToOption(OPENTSDB_KEY_PORT).isDefined) {
+  if (propertyToOption(OPENTSDB_KEY_PORT).isEmpty) {
     throw new Exception(s"OpenTSDB sink requires '$OPENTSDB_KEY_PORT' property.")
   }
 
@@ -103,43 +101,10 @@ private[spark] class OpenTsdbSink(val property: Properties, val registry: Metric
 
   val prefix = propertyToOption(OPENTSDB_KEY_PREFIX).getOrElse(OPENTSDB_DEFAULT_PREFIX)
 
-  val tagName1 = propertyToOption(OPENTSDB_KEY_TAG_NAME_1) match {
-    case Some(n) => n
-    case None =>
-      logWarning(
-        s"""'$OPENTSDB_KEY_TAG_NAME_1' property not specified for OpenTSDB sink,
-            | using '$OPENTSDB_DEFAULT_TAG_NAME_1'"""".stripMargin)
-      OPENTSDB_DEFAULT_TAG_NAME_1
-  }
-
-  lazy val tagValue1 = propertyToOption(OPENTSDB_KEY_TAG_NAME_1) match {
-    case Some(n) =>
-      propertyToOption(OPENTSDB_KEY_TAG_VALUE_1) match {
-        case Some(v) => v
-        case None =>
-          logWarning(
-            s"""'$OPENTSDB_KEY_TAG_VALUE_1' property not specified for OpenTSDB sink,
-                |using '$OPENTSDB_DEFAULT_TAG_VALUE_1'""".stripMargin)
-          OPENTSDB_DEFAULT_TAG_VALUE_1
-      }
-    case None =>
-      propertyToOption(OPENTSDB_KEY_TAG_VALUE_1) match {
-        case Some(v) =>
-          throw new Exception(
-            s"""'$OPENTSDB_KEY_TAG_VALUE_1' property cannot be specified for OpenTSDB sink
-                |without specifying '$OPENTSDB_KEY_TAG_NAME_1' property.""".stripMargin)
-        case None =>
-          logWarning(
-            s"""'$OPENTSDB_KEY_TAG_VALUE_1' property not specified for OpenTSDB sink,
-                |using '$OPENTSDB_DEFAULT_TAG_VALUE_1'""".stripMargin)
-          OPENTSDB_DEFAULT_TAG_VALUE_1
-      }
-  }
-
   private val tags = new java.util.HashMap[String, String]()
 
   private def getTags(registry: MetricRegistry): java.util.Map[String, String] = {
-    tags.put(tagName1, tagValue1)
+    updateTagsForTag(OPENTSDB_KEY_TAG_NAME_1, OPENTSDB_KEY_TAG_VALUE_1)
     updateTagsForTag(OPENTSDB_KEY_TAG_NAME_2, OPENTSDB_KEY_TAG_VALUE_2)
     updateTagsForTag(OPENTSDB_KEY_TAG_NAME_3, OPENTSDB_KEY_TAG_VALUE_3)
     updateTagsForTag(OPENTSDB_KEY_TAG_NAME_4, OPENTSDB_KEY_TAG_VALUE_4)
@@ -152,6 +117,10 @@ private[spark] class OpenTsdbSink(val property: Properties, val registry: Metric
     } else {
       updateTagsForTag(OPENTSDB_KEY_TAG_NAME_7, OPENTSDB_KEY_TAG_VALUE_7)
       updateTagsForTag(OPENTSDB_KEY_TAG_NAME_8, OPENTSDB_KEY_TAG_VALUE_8)
+
+      if (tags.isEmpty) {
+        tags.put("mandatoryTag", "mandatoryTagValue")
+      }
     }
 
     tags
