@@ -27,8 +27,8 @@ trait Dependency {
   }
 
   object CompileScope {
-    lazy val jersey_client  = "com.sun.jersey" % "jersey-client"  % JERSEY_VERSION withSources() excludeAll (excludeSlf4J: _*)
-    lazy val jersey_json    = "com.sun.jersey" % "jersey-json"    % JERSEY_VERSION withSources() excludeAll (excludeSlf4J: _*)
+    lazy val async_http_client = "com.ning" % "async-http-client" % "1.9.30" withSources() excludeAll (excludeSlf4J: _*)
+    lazy val jackson_core = "com.fasterxml.jackson.core" % "jackson-core" % "2.7.5" withSources() excludeAll (excludeSlf4J: _*)
   }
 
   object ProvidedScope {

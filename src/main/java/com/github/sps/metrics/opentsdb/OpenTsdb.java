@@ -15,25 +15,20 @@
  */
 package com.github.sps.metrics.opentsdb;
 
-import com.sun.jersey.api.client.Client;
-import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.api.client.config.ClientConfig;
-import com.sun.jersey.api.client.config.DefaultClientConfig;
-import com.sun.jersey.api.json.JSONConfiguration;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ning.http.client.AsyncCompletionHandler;
+import com.ning.http.client.AsyncHttpClient;
+import com.ning.http.client.AsyncHttpClientConfig;
+import com.ning.http.client.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.ws.rs.core.MediaType;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
- * OpenTSDB 2.0 jersey based REST client
- * <p/>
- * {@link http://opentsdb.net/docs/build/html/api_http/index.html#version-1-x-to-2-x}
- *
- * @author Sean Scanlon <sean.scanlon@gmail.com>
+ * OpenTSDB 2.0 REST client
  */
 public class OpenTsdb {
 
@@ -44,25 +39,15 @@ public class OpenTsdb {
 
     /**
      * Initiate a client Builder with the provided base opentsdb server url.
-     *
-     * @param baseUrl
-     * @return
      */
     public static Builder forService(String baseUrl) {
         return new Builder(baseUrl);
     }
 
-    /**
-     * create a client by providing the underlying WebResource
-     *
-     * @param apiResource
-     */
-    public static OpenTsdb create(WebResource apiResource) {
-        return new OpenTsdb(apiResource);
-    }
-
-    private final WebResource apiResource;
+    private final AsyncHttpClient.BoundRequestBuilder requestBuilder;
     private int batchSizeLimit = DEFAULT_BATCH_SIZE_LIMIT;
+
+    private ObjectMapper mapper = new ObjectMapper();
 
     public static class Builder {
         private Integer connectionTimeout = CONN_TIMEOUT_DEFAULT_MS;
@@ -88,20 +73,15 @@ public class OpenTsdb {
         }
     }
 
-    private OpenTsdb(WebResource apiResource) {
-        this.apiResource = apiResource;
-    }
-
     private OpenTsdb(String baseURL, Integer connectionTimeout, Integer readTimeout) {
 
-        final ClientConfig clientConfig = new DefaultClientConfig();
-        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
+        AsyncHttpClientConfig cf = new AsyncHttpClientConfig.Builder()
+                .setConnectTimeout(connectionTimeout)
+                .setReadTimeout(readTimeout)
+                .build();
+        AsyncHttpClient asyncHttpClient = new AsyncHttpClient(cf);
 
-        final Client client = Client.create(clientConfig);
-        client.setConnectTimeout(connectionTimeout);
-        client.setReadTimeout(readTimeout);
-
-        this.apiResource = client.resource(baseURL);
+        this.requestBuilder = asyncHttpClient.preparePost(baseURL + "/api/put");
     }
 
     public void setBatchSizeLimit(int batchSizeLimit) {
@@ -110,8 +90,6 @@ public class OpenTsdb {
 
     /**
      * Send a metric to opentsdb
-     *
-     * @param metric
      */
     public void send(OpenTsdbMetric metric) {
         send(Collections.singleton(metric));
@@ -119,8 +97,6 @@ public class OpenTsdb {
 
     /**
      * send a set of metrics to opentsdb
-     *
-     * @param metrics
      */
     public void send(Set<OpenTsdbMetric> metrics) {
         // we set the patch size because of existing issue in opentsdb where large batch of metrics failed
@@ -143,19 +119,20 @@ public class OpenTsdb {
     }
 
     private void sendHelper(Set<OpenTsdbMetric> metrics) {
-        /*
-         * might want to bind to a specific version of the API.
-         * according to: http://opentsdb.net/docs/build/html/api_http/index.html#api-versioning
-         * "if you do not supply an explicit version, ... the latest version will be used."
-         * circle back on this if it's a problem.
-         */
         if (!metrics.isEmpty()) {
             try {
-                apiResource.path("/api/put")
-                        .type(MediaType.APPLICATION_JSON)
-                        .entity(metrics)
-                        .post();
-            } catch(Throwable ex) {
+                requestBuilder
+                        .setBody(mapper.writeValueAsString(metrics))
+                        .execute(new AsyncCompletionHandler<Void>() {
+                            @Override
+                            public Void onCompleted(Response response) throws Exception {
+                                if (response.getStatusCode() != 204) {
+                                    logger.error("send to opentsdb endpoint failed: " + response.getResponseBody());
+                                }
+                                return null;
+                            }
+                        });
+            } catch (Throwable ex) {
                 logger.error("send to opentsdb endpoint failed", ex);
             }
         }

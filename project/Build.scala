@@ -47,8 +47,7 @@ object JetloreProject extends Build with Dependency {
   lazy val root = Project("spark-opentsdb-sink", file("."), settings = buildSettings).
     settings(libraryDependencies ++= Seq(
       spark_core_transitive % "provided",
-      jersey_client,
-      jersey_json)
+      async_http_client, jackson_core)
     )
 }
 
