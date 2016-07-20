@@ -27,12 +27,12 @@ trait Dependency {
   }
 
   object CompileScope {
-    lazy val async_http_client = "com.ning" % "async-http-client" % "1.9.30" withSources() excludeAll (excludeSlf4J: _*)
+    lazy val async_http_client = "com.ning" % "async-http-client" % "1.9.30" withSources() excludeAll (ExclusionRule(organization = "io.netty") :: excludeSlf4J: _*)
     lazy val jackson_core = "com.fasterxml.jackson.core" % "jackson-core" % "2.7.5" withSources() excludeAll (excludeSlf4J: _*)
   }
 
   object ProvidedScope {
-    lazy val spark_core_transitive = "org.apache.spark" % "spark-core_2.10" % "1.4.1-JETLORE" withSources()
+    lazy val spark_core_transitive = "org.apache.spark" % "spark-core_2.10" % "1.6.1" withSources()
   }
 
   object TestScope {

@@ -6,7 +6,7 @@ object BuildSettings {
   val buildOrganization = "jetlore"
   val buildScalaVersionPrefix = "2.10"
   val buildScalaVersion = buildScalaVersionPrefix + ".5"
-  val buildVersion = "2.2.13-SNAPSHOT"
+  val buildVersion = "1.0.2"
 
   val coreBuildSettings = Seq(
     organization := buildOrganization,
@@ -44,7 +44,7 @@ object JetloreProject extends Build with Dependency {
   import CompileScope._
   import ProvidedScope._
 
-  lazy val root = Project("spark-opentsdb-sink", file("."), settings = buildSettings).
+  lazy val root = Project("spark-opentsdb-sink-1_6_1", file("."), settings = buildSettings).
     settings(libraryDependencies ++= Seq(
       spark_core_transitive % "provided",
       async_http_client, jackson_core)

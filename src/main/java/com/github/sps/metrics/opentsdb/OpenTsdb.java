@@ -32,7 +32,7 @@ import java.util.Set;
  */
 public class OpenTsdb {
 
-    public static final int DEFAULT_BATCH_SIZE_LIMIT = 0;
+    public static final int DEFAULT_BATCH_SIZE_LIMIT = 10;
     public static final int CONN_TIMEOUT_DEFAULT_MS = 5000;
     public static final int READ_TIMEOUT_DEFAULT_MS = 5000;
     private static final Logger logger = LoggerFactory.getLogger(OpenTsdb.class);
@@ -127,7 +127,9 @@ public class OpenTsdb {
                             @Override
                             public Void onCompleted(Response response) throws Exception {
                                 if (response.getStatusCode() != 204) {
-                                    logger.error("send to opentsdb endpoint failed: " + response.getResponseBody());
+                                    logger.error("send to opentsdb endpoint failed: ("
+                                            + response.getStatusCode() + ") "
+                                            + response.getResponseBody());
                                 }
                                 return null;
                             }
